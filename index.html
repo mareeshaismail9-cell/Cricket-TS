@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#172b49"><link rel="manifest" href="manifest.webmanifest">
+<title>Cricket Team Draft</title>
+<style>
+:root{color-scheme:dark;--bg:#101a2a;--panel:#192840;--panel2:#20324d;--gold:#d5aa55;--muted:#aab8ca;--line:#354761;--white:#f8f6ef}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,#101a2a,#172b49);color:var(--white);font:16px system-ui,sans-serif;min-height:100vh}
+main{max-width:760px;margin:auto;padding:22px 16px 42px}.brand{text-align:center;margin-bottom:18px}.eyebrow{letter-spacing:.18em;color:var(--gold);font-size:12px;font-weight:800}.brand h1{font-size:clamp(25px,6vw,36px);margin:6px 0}.sub,.note{color:var(--muted);font-size:12px}
+.panel{background:rgba(25,40,64,.96);border:1px solid var(--line);border-radius:18px;padding:16px;margin:14px 0;box-shadow:0 10px 30px #0003}
+.panel h2{font-size:17px;margin:0 0 14px}.team-setting{margin:13px 0 17px}.setting-head{display:flex;justify-content:space-between;gap:12px;font-size:13px;font-weight:650;margin-bottom:5px}.setting-head output{color:var(--gold);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;height:30px;margin:0;accent-color:var(--gold);cursor:grab;touch-action:pan-y}
+.total{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:13px;font-weight:800}.total strong{color:var(--gold)}
+button{border:0;border-radius:12px;padding:13px 16px;font-weight:800;font-size:14px;cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.secondary{width:100%;background:transparent;color:var(--white);border:1px solid var(--line);margin-top:12px}.primary{width:100%;background:var(--gold);color:#17233a;font-size:16px}
+.wheel-area{text-align:center}.wheel-title{color:var(--gold);letter-spacing:.16em;font-weight:800;font-size:13px;margin:18px 0 6px}.wheel-wrap{position:relative;width:min(88vw,390px);margin:10px auto 14px}.wheel-wrap canvas{display:block;width:100%;height:auto}.pointer{position:absolute;z-index:2;top:-8px;left:50%;transform:translateX(-50%);font-size:29px;color:var(--gold)}
+.status{font-size:13px;color:var(--muted);font-weight:700}.result{font-size:clamp(19px,5vw,25px);font-weight:900;margin:8px 0 14px;min-height:34px}.picks-head{display:flex;justify-content:space-between;font-size:13px;font-weight:850;letter-spacing:.08em;margin-bottom:10px}.picks-head span:last-child{color:var(--muted)}.pick-row{display:flex;justify-content:space-between;gap:12px;background:var(--panel2);padding:11px 12px;border-radius:10px;margin:7px 0;font-size:13px}.pick-row b{color:var(--gold);white-space:nowrap}.pick-row span{text-align:right}.note{text-align:center;line-height:1.5;margin:12px 4px}.footer{text-align:center;color:var(--muted);font-size:11px;margin-top:20px}
+input[type=password]{min-width:0;flex:1;border:1px solid var(--line);border-radius:10px;background:#101a2a;color:white;padding:12px}
+@media(min-width:650px){.panel{padding:20px}.settings-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:26px}}
+</style></head>
+<body><main>
+<header class="brand"><div class="eyebrow">THE OFFICIAL TEAM DRAW</div><h1>Cricket Team Draft</h1><div class="sub">Six teams · Six picks · One spinning wheel</div></header>
+
+<section class="panel" aria-label="Settings">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+ <div><h2 style="margin:0">⚙️ Settings</h2><div class="sub">Probability controls are password protected</div></div>
+ <button id="settings-open" class="secondary" style="width:auto;margin:0;white-space:nowrap">Open settings</button>
+</div>
+<div id="settings-lock" hidden style="margin-top:15px">
+ <label for="settings-password" style="display:block;font-size:13px;margin-bottom:7px">Enter settings password</label>
+ <div style="display:flex;gap:8px"><input id="settings-password" type="password" inputmode="numeric" autocomplete="off" placeholder="Password"><button id="settings-unlock" class="primary" style="width:auto">Unlock</button></div>
+ <div id="settings-error" role="alert" class="sub" style="color:#ff9b91;margin-top:7px"></div>
+</div>
+<div id="settings-content" hidden style="margin-top:17px">
+ <h2>First-pick probability settings</h2><div id="settings" class="settings-grid"></div>
+ <div class="total"><span>Total probability</span><strong id="total">100.00%</strong></div>
+ <button class="secondary" id="reset-equal">Reset to equal chances</button>
+ <p class="note">Drag any slider to set that team's chance. The other five teams automatically share the remaining probability equally. Settings lock after the first spin.</p>
+ <button class="secondary" id="settings-close">Lock settings</button>
+</div></section>
+
+<section class="panel wheel-area"><div class="wheel-title">THE SPINNING WHEEL</div>
+<div class="wheel-wrap"><div class="pointer">▼</div><canvas id="wheel" width="700" height="700"></canvas></div>
+<div class="status" id="round">Ready for First Pick</div><div class="result" id="result" aria-live="polite">Who gets the first pick?</div>
+<button class="primary" id="spin">SPIN FOR FIRST PICK</button></section>
+
+<section class="panel"><div class="picks-head"><span>PICK ORDER</span><span id="count">0 / 6</span></div><div id="board"></div><button class="secondary" id="restart">Reset entire draft</button></section>
+<p class="note">Only the first pick uses your adjusted probabilities. Picks 2–6 are equally random among the teams still remaining. This is a random draw, not a guaranteed outcome.</p>
+<div class="footer">Cricket Team Draft · Installable web app</div></main>
+<script>
+(()=>{
+const names=['Bara Nakka Capitals','Nachrat Badshah','Changdar Kings','Lundia Patti Stars','Royal Challenger Nakka','Pattia Panthers'];
+const colors=['#234a78','#a44339','#3d7156','#79519b','#bd913b','#345e91'],ord=['First','Second','Third','Fourth','Fifth','Sixth'];
+let probs=names.map(()=>1/6),remaining=[...names],picks=[],angle=0,busy=false,started=false;
+const $=id=>document.getElementById(id),canvas=$('wheel'),ctx=canvas.getContext('2d'),settingsLock=$('settings-lock'),settingsContent=$('settings-content'),password=$('settings-password');
+const fmt=x=>(x*100).toFixed(2)+'%';
+function setProbability(i,v){const next=[...probs],others=probs.map((_,j)=>j).filter(j=>j!==i);next[i]=v;const share=(1-v)/5;others.forEach(j=>next[j]=share);next[others[4]]=1-next[i]-others.slice(0,4).reduce((s,j)=>s+next[j],0);probs=next}
+function renderSettings(){
+ const box=$('settings');box.innerHTML='';
+ names.forEach((name,i)=>{const row=document.createElement('div');row.className='team-setting';const head=document.createElement('div');head.className='setting-head';
+ const label=document.createElement('label');label.textContent=name;label.htmlFor='prob-'+i;const value=document.createElement('output');value.textContent=fmt(probs[i]);value.htmlFor='prob-'+i;head.append(label,value);
+ const slider=document.createElement('input');slider.type='range';slider.id='prob-'+i;slider.min='0';slider.max='1';slider.step='.001';slider.value=probs[i];slider.disabled=started||busy;slider.addEventListener('input',()=>{setProbability(i,Number(slider.value));renderSettings()});row.append(head,slider);box.append(row)});
+ $('total').textContent=fmt(probs.reduce((a,b)=>a+b,0));$('reset-equal').disabled=started||busy;
+}
+function draw(){
+ const n=remaining.length,c=350,r=330;ctx.clearRect(0,0,700,700);if(!n)return;const step=2*Math.PI/n;
+ remaining.forEach((name,i)=>{const a=angle+i*step-Math.PI/2;ctx.beginPath();ctx.moveTo(c,c);ctx.arc(c,c,r,a,a+step);ctx.closePath();ctx.fillStyle=colors[names.indexOf(name)];ctx.fill();ctx.strokeStyle='#f6dfaa';ctx.lineWidth=4;ctx.stroke();ctx.save();ctx.translate(c,c);ctx.rotate(a+step/2);ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle='#fff';ctx.font='bold '+(n>4?'19px':'22px')+' system-ui';ctx.fillText(name,r-20,0,r-48);ctx.restore()});
+ ctx.beginPath();ctx.arc(c,c,49,0,Math.PI*2);ctx.fillStyle='#e0b957';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=5;ctx.stroke();ctx.fillStyle='#243b5b';ctx.font='bold 26px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('BN',c,c);
+}
+function update(){
+ $('board').innerHTML='';ord.forEach((o,i)=>{const d=document.createElement('div');d.className='pick-row';const a=document.createElement('b');a.textContent=o+' Pick';const b=document.createElement('span');b.textContent=picks[i]||'Awaiting pick';d.append(a,b);$('board').append(d)});
+ $('count').textContent=picks.length+' / 6';$('round').textContent=picks.length===6?'ALL SIX PICKS COMPLETED':'Ready for '+ord[picks.length]+' Pick';$('spin').textContent=picks.length===6?'DRAFT COMPLETED':'SPIN FOR '+(ord[picks.length]||'').toUpperCase()+' PICK';$('spin').disabled=busy||picks.length===6;renderSettings();
+}
+function animate(target,done){const from=angle,delta=target-from,start=performance.now();function frame(now){const p=Math.min(1,(now-start)/4300);angle=from+delta*(1-Math.pow(1-p,4));draw();if(p<1)requestAnimationFrame(frame);else{angle=((angle%(2*Math.PI))+2*Math.PI)%(2*Math.PI);draw();done()}}requestAnimationFrame(frame)}
+$('spin').addEventListener('click',()=>{
+ if(busy||picks.length===6)return;busy=true;started=true;renderSettings();$('spin').disabled=true;
+ let chosen;if(!picks.length){let r=Math.random(),sum=0,index=probs.findIndex(p=>{sum+=p;return r<sum});chosen=names[index<0?5:index]}else chosen=remaining[Math.floor(Math.random()*remaining.length)];
+ const idx=remaining.indexOf(chosen),step=2*Math.PI/remaining.length,center=idx*step+step/2,cur=((angle%(2*Math.PI))+2*Math.PI)%(2*Math.PI),target=cur+Math.PI*10+((2*Math.PI-center-cur%(2*Math.PI)+2*Math.PI)%(2*Math.PI));
+ $('result').textContent='The wheel is spinning...';animate(target,()=>{picks.push(chosen);remaining=remaining.filter(x=>x!==chosen);busy=false;update();$('result').textContent=ord[picks.length-1]+' PICK: '+chosen});
+});
+$('settings-open').addEventListener('click',()=>{settingsLock.hidden=false;settingsContent.hidden=true;$('settings-error').textContent='';password.value='';password.focus()});
+function unlock(){if(password.value==='1122'){settingsLock.hidden=true;settingsContent.hidden=false;$('settings-error').textContent='';renderSettings()}else{$('settings-error').textContent='Incorrect password. Try again.';password.select()}}
+$('settings-unlock').addEventListener('click',unlock);password.addEventListener('keydown',e=>{if(e.key==='Enter')unlock()});
+$('settings-close').addEventListener('click',()=>{settingsContent.hidden=true;settingsLock.hidden=true;password.value=''});
+$('reset-equal').addEventListener('click',()=>{if(started||busy)return;probs=names.map(()=>1/6);renderSettings()});
+$('restart').addEventListener('click',()=>{if(busy)return;remaining=[...names];picks=[];probs=names.map(()=>1/6);angle=0;started=false;settingsContent.hidden=true;settingsLock.hidden=true;password.value='';draw();update();$('result').textContent='Who gets the first pick?'});
+settingsLock.hidden=true;settingsContent.hidden=true;draw();update();
+})();
+</script>
+<script>if('serviceWorker'in navigator&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));</script>
+</body></html>
